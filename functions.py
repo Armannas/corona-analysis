@@ -1,3 +1,7 @@
+#
+## Author: Arman Nassiri, arman.a.nassiri@gmail.com
+#
+
 import pandas as pd
 import pickle
 import numpy as np

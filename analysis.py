@@ -1,3 +1,7 @@
+#
+## Author: Arman Nassiri, arman.a.nassiri@gmail.com
+#
+
 from datetime import timedelta
 from datetime import datetime as dt
 import matplotlib.pyplot as plt
