@@ -29,33 +29,33 @@ norm_pop_str = ""
 
 params = {
     '1': {
-        'country': "Netherlands", # country to analyze
-        'start_date': np.datetime64('2020-02-26'), # start date
-        'nDays': 7, # Number of days to forecast
+        'country': "China", # country to analyze
+        'start_date': np.datetime64('2020-01-26'), # start date
+        'nDays': 1, # Number of days to forecast
         'nDays_off': 0, # offset to allow aligning the data of different countries
         'target': 'infections', # variable to analyze (infections or mortalities supported)
-        'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported)
+        'fit_func': func_logit, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
         'fit_name': 'exponential', # name of fitting function
-        'norm_pop': True, # Normalize per 1 million inhabitants
+        'norm_pop': False, # Normalize per 1 million inhabitants
         'plot_off': -100, # offset location of text for each datapoint
         'plot_marker': "D", # Marker for each datapoint
         'plot_color_known': 'tab:blue', # Color of the known datapoints
         'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
-    },
-    '2': {
-        'country': "Netherlands",
-        'start_date': np.datetime64('2020-02-26'),
-        'nDays': 7,
-        'nDays_off': 0,
-        'target': 'mortalities',
-        'fit_func': func_exp,
-        'fit_name': 'exponential',
-        'norm_pop': True,
-        'plot_off': 2.5,
-        'plot_marker': "o",
-        'plot_color_known': 'tab:blue',
-        'plot_color_pred': 'darkorange'
-    }
+    } #,
+    # '2': {
+    #     'country': "China",
+    #     'start_date': np.datetime64('2020-02-26'),
+    #     'nDays': 7,
+    #     'nDays_off': 0,
+    #     'target': 'mortalities',
+    #     'fit_func': func_exp,
+    #     'fit_name': 'exponential',
+    #     'norm_pop': False,
+    #     'plot_off': 2.5,
+    #     'plot_marker': "o",
+    #     'plot_color_known': 'tab:blue',
+    #     'plot_color_pred': 'darkorange'
+    # }
 
 }
 # ----------------------
@@ -86,36 +86,42 @@ for id in params:
     date_str = [str(d) for d in dates]
 
     # Fit a function, choose numerical values for input instead of dates
-    datespred, ypred, dates_all, y_all = get_predictions(p['fit_func'], dates, cases, p['nDays'])
+    if p['fit_func']:
+        datespred, ypred, dates_all, y_all = get_predictions(p['fit_func'], dates, cases, p['nDays'])
 
-    # Save today's predictions to disk
-    d = dict()
-    d['Date'] = datespred
-    d['pred'] = ypred.astype(np.int)
-    d['acc'] = np.ones(len(ypred)) * np.nan
-    d['true'] = np.ones(len(ypred)) * np.nan
+        # Save today's predictions to disk
+        d = dict()
+        d['Date'] = datespred
+        d['pred'] = ypred.astype(np.int)
+        d['acc'] = np.ones(len(ypred)) * np.nan
+        d['true'] = np.ones(len(ypred)) * np.nan
 
-    df = save_prediction(dates, datespred, d, p['target'], country, p['fit_name'])
+        df = save_prediction(dates, datespred, d, p['target'], country, p['fit_name'])
 
-    # Update all predictions with latest data
-    d_data = {'Date': dates, 'true': cases}
-    df_data = pd.DataFrame(d_data)
-    df_data.set_index('Date', inplace=True)
+        # Update all predictions with latest data
+        d_data = {'Date': dates, 'true': cases}
+        df_data = pd.DataFrame(d_data)
+        df_data.set_index('Date', inplace=True)
 
-    update_predictions(df_data, p['target'], country, p['fit_name'])
+        update_predictions(df_data, p['target'], country, p['fit_name'])
 
     # Because the outbreak happened at different dates in most countries,
     # it can be easier to read by aligning them. This is done by allowing for an offset in the dates
     dates = [date + timedelta(days=p['nDays_off']) for date in dates]
-    datespred = [date + timedelta(days=p['nDays_off']) for date in datespred]
+
+    if p['fit_func']:
+        datespred = [date + timedelta(days=p['nDays_off']) for date in datespred]
     dates_all = [date + timedelta(days=p['nDays_off']) for date in dates_all]
 
     # Plot known cases
     plt.scatter(dates, cases, c=p['plot_color_known'],marker=p['plot_marker'], label="No. of known " + str(p['target']) + ", " + country + " " + date_str[0] + " - " + date_str[-1], zorder=20)
 
-    # Plot fitted trendline
-    plt.plot(dates_all, y_all, 'r--', label=f"Estimated trend ({p['fit_name']}, {country})", zorder=1)
-    plt.scatter(datespred, ypred, c=p['plot_color_pred'], marker=p['plot_marker'], label = f"Estimated future cases ({p['fit_name']}, {country})", zorder=10)
+    if p['fit_func']:
+        # Plot fitted trendline
+        plt.plot(dates_all, y_all, 'r--', label=f"Estimated trend ({p['fit_name']}, {country})", zorder=1)
+        plt.scatter(datespred, ypred, c=p['plot_color_pred'], marker=p['plot_marker'], label = f"Estimated future cases ({p['fit_name']}, {country})", zorder=10)
+    else:
+        plt.plot(dates, cases, 'r--', label=f"Trend ({p['fit_name']}, {country})", zorder=1)
 
     plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(params.keys()) + ", 7 day forecast")
     plt.ylabel("Number of " + str(p['target']) + norm_pop_str)

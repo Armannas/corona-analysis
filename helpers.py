@@ -16,7 +16,8 @@ def get_predictions(func, dates, cases, nDays):
     args = dict()
     if func == func_logit:
         args['p0'] = [cases.max(), len(dates) / 2, 0.1, 0],
-        args['maxfev'] = 1000000
+
+    args['maxfev'] = 1000000
 
     x = np.arange(0, len(dates))
     popt, pcov = curve_fit(func, x, cases, **args)

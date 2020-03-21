@@ -46,8 +46,6 @@ def update_predictions(df_data, target, country, fit_name):
     # Update every prediction with latest data
         df.update(df_data, overwrite=True)
 
-        print(df)
-
     # Compute prediction accuracy if true value available
         df['acc'] = 100 * (df['pred'] - df['true']) / df['true']
 
