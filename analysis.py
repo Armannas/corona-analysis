@@ -12,175 +12,134 @@ import os.path
 from scipy.optimize import curve_fit
 from functions import func_lin, func_logit, func_exp
 from functions import setup_dirs
+from helpers import load_datasets, get_predictions
+from functions import save_prediction, update_predictions
 
-today = str(dt.utcnow().date())
-file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
-# Worldwide infections and mortalities from European Center for Disease Control
-url ="https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
+# Setup required directories to save predictions and datasets
+setup_dirs()
 
 ### Set these values ###
 # ----------------------
 # The Dutch National Institute for Public Health and the Environment (RIVM)
 # has Dutch data a bit earlier than ECDC
-rivm_cases = 409
-rivm_deaths = 18
+rivm_cases = 2994
+rivm_deaths = 30
 
-# Analyze reported infections or mortalities
-target = 'mortalities' # mortalities or infections
+norm_pop_str = ""
 
-# Fit logistic function
-plot_logistic = False
-plot_linear = False
+params = {
+    '1': {
+        'country': "Netherlands", # country to analyze
+        'start_date': np.datetime64('2020-02-26'), # start date
+        'nDays': 7, # Number of days to forecast
+        'nDays_off': 0, # offset to allow aligning the data of different countries
+        'target': 'infections', # variable to analyze (infections or mortalities supported)
+        'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported)
+        'fit_name': 'exponential', # name of fitting function
+        'norm_pop': True, # Normalize per 1 million inhabitants
+        'plot_off': -100, # offset location of text for each datapoint
+        'plot_marker': "D", # Marker for each datapoint
+        'plot_color_known': 'tab:blue', # Color of the known datapoints
+        'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
+    },
+    '2': {
+        'country': "Netherlands",
+        'start_date': np.datetime64('2020-02-26'),
+        'nDays': 7,
+        'nDays_off': 0,
+        'target': 'mortalities',
+        'fit_func': func_exp,
+        'fit_name': 'exponential',
+        'norm_pop': True,
+        'plot_off': 2.5,
+        'plot_marker': "o",
+        'plot_color_known': 'tab:blue',
+        'plot_color_pred': 'darkorange'
+    }
 
-# Length of forecast in days
-nDays = 7
-
-source = 'url' # or file
-
-# Filter by country and start date for infections and mortality analysis
-query_dict = {'country': 'Netherlands',
-              'start_date_inf': np.datetime64('2020-02-26'),
-              'start_date_mort': np.datetime64('2020-03-05')}
+}
 # ----------------------
 
-# Setup required directories to save predictions and datasets
-setup_dirs()
+for id in params:
 
-# Load data from file or url
-if source == 'url':
-    # If file already downloaded, load from disk
-    if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_name):
-        data = pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
-        print("loaded from disk")
-    else:
-        # Otherwise download from URL and save to disk
-        data = pd.read_excel(url)
-        data.to_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
-        print("loaded from url")
+    p = params[id]
+    country = p['country']
 
-# Load some file directly from disk
-else:
-    data = pd.read_csv('Corona_NL.csv')
+    # Load COVID-19 and population datasets
+    data, pop = load_datasets(country, p['start_date'])
 
+    # Update with latest data from RIVM
+    # if query_dict['country'] == "Netherlands":
+    #     data = data.append({'DateRep': np.datetime64(today), 'Cases': rivm_cases, 'Deaths':rivm_deaths}, ignore_index=True)
 
-# Choose country to analyze
-data = data[data['Countries and territories'] == query_dict['country']]
+    # Compute cumulative cases from cases per day
+    cases = np.array(data[p['target']].cumsum())
 
-# For NL at least, the numbers are known 1 day earlier than the ECDC claims
-data['DateRep'] = data['DateRep'] - timedelta(days=1)
+    # Normalize per 1 mil inhabitants
+    if p['norm_pop']:
+        cases = cases / (pop/1000)
+        norm_pop_str = " (per 1 mil inhabitants)"
 
-# Sort ascending
-data = data.sort_values('DateRep')
+    # Convert dates to datetime
+    dates_pd = pd.to_datetime(np.array(data['DateRep']))
+    dates = [d.date() for d in dates_pd]
+    date_str = [str(d) for d in dates]
 
-# Update with latest data from RIVM
-if query_dict['country'] == "Netherlands":
-    data = data.append({'DateRep': np.datetime64(today), 'Cases': rivm_cases, 'Deaths':rivm_deaths}, ignore_index=True)
+    # Fit a function, choose numerical values for input instead of dates
+    datespred, ypred, dates_all, y_all = get_predictions(p['fit_func'], dates, cases, p['nDays'])
 
-# Compute cumulative cases from cases per day
-if target == 'infections':
-    data = data[data['DateRep'] >= query_dict['start_date_inf']]
-    cases = np.array(data['Cases'].cumsum())
-    plot_offs = 200
-    plot_offs_lin = 0
-else:
-    data = data[data['DateRep'] >= query_dict['start_date_mort']]
-    cases = np.array(data['Deaths'].cumsum())
-    plot_offs = 10
-    plot_offs_lin = 10
+    # Save today's predictions to disk
+    d = dict()
+    d['Date'] = datespred
+    d['pred'] = ypred.astype(np.int)
+    d['acc'] = np.ones(len(ypred)) * np.nan
+    d['true'] = np.ones(len(ypred)) * np.nan
 
-# Convert dates to datetime
-dates_pd = pd.to_datetime(np.array(data['DateRep']))
-dates = [d.date() for d in dates_pd]
+    df = save_prediction(dates, datespred, d, p['target'], country, p['fit_name'])
 
-date_str = [str(d) for d in dates]
-# date_str = [date.date()]
-# dates = [dt.strptime(date, '%m/%d/%Y') for date in date_str]
+    # Update all predictions with latest data
+    d_data = {'Date': dates, 'true': cases}
+    df_data = pd.DataFrame(d_data)
+    df_data.set_index('Date', inplace=True)
 
-# Fit a function, choose numerical values for input instead of dates
-x = np.arange(0, len(dates))
-popt_exp, pcov_exp = curve_fit(func_exp, x, cases)
-popt_logit, pcov_logit = curve_fit(func_logit, x, cases,p0=[cases.max(), len(dates)/2,0.1, 0], maxfev=1000000)
-popt_lin, pcov_lin = curve_fit(func_lin, x, cases)
+    update_predictions(df_data, p['target'], country, p['fit_name'])
 
-# 7 day 'forecast'
-datespred = [dates[-1] + timedelta(days=day) for day in range(1, nDays + 1)]
-xpred = np.arange(x[-1] + 1, x[-1] + nDays + 1)
-ypred_exp = func_exp(xpred, *popt_exp)
-ypred_logit = func_logit(xpred, *popt_logit)
-ypred_lin = func_lin(xpred, *popt_lin)
+    # Because the outbreak happened at different dates in most countries,
+    # it can be easier to read by aligning them. This is done by allowing for an offset in the dates
+    dates = [date + timedelta(days=p['nDays_off']) for date in dates]
+    datespred = [date + timedelta(days=p['nDays_off']) for date in datespred]
+    dates_all = [date + timedelta(days=p['nDays_off']) for date in dates_all]
 
-# Draw trendline based on fit evaluated for all dates
-dates_all = np.append(dates, datespred)
-x_all = np.append(x, xpred)
-y_all_exp = func_exp(x_all, *popt_exp)
-y_all_logit = func_logit(x_all, *popt_logit)
-y_all_lin = func_lin(x_all, *popt_lin)
+    # Plot known cases
+    plt.scatter(dates, cases, c=p['plot_color_known'],marker=p['plot_marker'], label="No. of known " + str(p['target']) + ", " + country + " " + date_str[0] + " - " + date_str[-1], zorder=20)
 
-# Plot known cases
-plt.scatter(dates, cases,label="No. of known " + str(target) + " " + date_str[0] + " - " + date_str[-1], zorder=20)
+    # Plot fitted trendline
+    plt.plot(dates_all, y_all, 'r--', label=f"Estimated trend ({p['fit_name']}, {country})", zorder=1)
+    plt.scatter(datespred, ypred, c=p['plot_color_pred'], marker=p['plot_marker'], label = f"Estimated future cases ({p['fit_name']}, {country})", zorder=10)
 
-# Plot fitted trendline
-plt.plot(dates_all, y_all_exp, 'r--', label="Estimated trend (exponential)", zorder=1)
-plt.scatter(datespred, ypred_exp, label = "Estimated future cases (exponential)", zorder=10)
+    plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(params.keys()) + ", 7 day forecast")
+    plt.ylabel("Number of " + str(p['target']) + norm_pop_str)
+    plt.xlim(dates_all[0], dates_all[-1])
 
-if plot_logistic:
-    plt.plot(dates_all, y_all_logit, 'g--', label="Estimated trend (logistic)", zorder=1)
-    plt.scatter(datespred, ypred_logit, label = "Estimated future cases (logistic)", zorder=10)
+    # Format the date labels on x axis
+    dates_fmt = [date.strftime('%b %-d') for date in dates_all]
+    plt.xticks(dates_all, dates_fmt)
 
-if plot_linear:
-    plt.plot(dates_all, y_all_lin, 'r--', label="Estimated trend (linear)", zorder=1)
-    plt.scatter(datespred, ypred_lin, label="Estimated future cases (linear)", zorder=10)
+    for a,b in zip(dates_all, np.append(cases, ypred)):
+        if p['norm_pop']:
+            plt.annotate("{:.2f}".format(b), xy=(a, b+p['plot_off']), ha='center')
+        else:
+            plt.annotate(str(int(b)), xy=(a, b + p['plot_off']), ha='center')
 
-plt.title("Number of known Coronavirus " + str(target) + " in " + query_dict['country'] + " and 7 day forecast")
-plt.ylabel("Number of " + str(target))
-plt.xlim(dates_all[0], dates_all[-1])
+    # Rotate labels for easier reading
+    plt.setp(plt.gca().xaxis.get_majorticklabels(),'rotation', 45)
+    plt.legend()
+    plt.show()
 
-# Format the date labels on x axis
-dates_fmt = [date.strftime('%b %-d') for date in dates_all]
-plt.xticks(dates_all, dates_fmt)
-for a,b in zip(dates_all, np.append(cases, ypred_exp)):
-    plt.annotate(str(int(b)), xy=(a-timedelta(hours=0), b+plot_offs), ha='center')
-
-if plot_logistic:
-    for a,b in zip(datespred, ypred_logit):
-        plt.annotate(str(int(b)), xy=(a, b-plot_offs-plot_offs_lin), ha='center')
-
-if plot_linear:
-    for a,b in zip(datespred, ypred_lin):
-        plt.annotate(str(int(b)), xy=(a, b-plot_offs-20), ha='center')
-
-# Rotate labels for easier reading
-plt.setp(plt.gca().xaxis.get_majorticklabels(),'rotation', 45)
-plt.legend()
-plt.show()
-
-#%% Save today's predictions to disk
-from functions import save_prediction, update_predictions
-
-d = {'Date': datespred,
-     'pred_exp': ypred_exp.astype(np.int),
-     'pred_logit': ypred_logit.astype(np.int),
-     'true': np.ones(len(ypred_exp)) * np.nan,
-     'acc_exp': np.ones(len(ypred_exp)) * np.nan,
-     'acc_logit': np.ones(len(ypred_logit)) * np.nan}
-if plot_linear:
-    d['pred_lin'] = ypred_lin.astype(np.int)
-    d['acc_lin'] = np.ones(len(ypred_lin)) * np.nan
-
-df = save_prediction(dates, datespred, d, target)
-
-
-#%% Update all predictions with latest data
-d_data = {'Date': dates, 'true': cases}
-df_data = pd.DataFrame(d_data)
-df_data.set_index('Date', inplace=True)
-
-update_predictions(df_data, target)
-
-#%% Open specific prediction
-import pickle
-with open(definitions.ROOT_DIR + '/predictions/' + str(target) + '/' + '17-03-2020.pkl', 'rb') as handle:
-    df = pickle.load(handle)
+# Open specific prediction
+# import pickle
+# with open(definitions.ROOT_DIR + '/predictions/' + str(p['target']) + '/' + country + '-' + '17-03-2020.pkl', 'rb') as handle:
+#     df = pickle.load(handle)
 
 
 
