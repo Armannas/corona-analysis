@@ -30,9 +30,10 @@ norm_pop_str = ""
 params = {
     '1': {
         'country': "Netherlands", # country to analyze
+        'country_pop_name': "Netherlands", # Name as denoted by UN dataset (sometimes different than the COVID dataset)
         'start_date': np.datetime64('2020-03-16'), # start date
         'nDays': 5, # Number of days to forecast
-        'nDays_off': -16, # offset to allow aligning the data of different countries
+        'nDays_off': 0, # offset to allow aligning the data of different countries
         'target': 'mortalities', # variable to analyze (infections or mortalities supported)
         'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
         'fit_name': 'exponential', # name of fitting function
@@ -43,7 +44,8 @@ params = {
         'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
     } ,
      '2': {
-         'country': "China",
+         'country': "Iran",
+         'country_pop_name': "Iran (Islamic Republic of)",
          'start_date': np.datetime64('2020-02-29'),
          'nDays': 1,
          'nDays_off': 0,
@@ -68,7 +70,7 @@ for id in params:
     countries.append(country)
 
     # Load COVID-19 and population datasets
-    data, pop = load_datasets(country, p['start_date'], p['target'])
+    data, pop = load_datasets(country, p['country_pop_name'], p['start_date'], p['target'])
 
     # Update with latest data from RIVM
     # if query_dict['country'] == "Netherlands":
