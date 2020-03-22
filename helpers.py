@@ -38,26 +38,7 @@ def get_predictions(func, dates, cases, nDays):
 
 def load_datasets(country, start_date, target):
 
-    url_pop = "https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx"
-    file_pop = "population.xls"
-
-    ## Download population data from UN
-    # Be nice to the server, if file already downloaded, load from disk
-    if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_pop):
-        data_pop =  pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
-    else:
-        # Otherwise download from URL and save to disk
-        data_pop = pd.read_excel(url_pop, skiprows=16) # Skip first 16 non-data rows
-        data_pop.to_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
-
-    # Get population for country
-    pop = data_pop[(data_pop['Region, subregion, country or area *'] == country)]
-
-    # Choose population in 2020
-    pop = np.array(pop['2020'])[0]
-
     ## Download COVID-19 data
-
     today = str(dt.utcnow().date())
     file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
     # Worldwide infections and mortalities from European Center for Disease Control
@@ -85,6 +66,33 @@ def load_datasets(country, start_date, target):
 
     data = data.rename(columns={"Cases": "infections", "Deaths": "mortalities"})
 
+
+    url_pop = "https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx"
+    file_pop = "population.xls"
+
+    ## Same for population data downloaded from UN
+    # Load from disk if available
+    if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_pop):
+        data_pop =  pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
+    else:
+        # Otherwise download from URL and save to disk
+        data_pop = pd.read_excel(url_pop, skiprows=16) # Skip first 16 non-data rows
+
+        # UN country names are different. Replace by name convention of ECDC
+        for country in pd.unique(data['Countries and territories']):
+
+            # Check which element of UN country name matches that of ECDC
+            # Replace that element with ECDC country name
+            data_pop.loc[data_pop['Region, subregion, country or area *'].str.contains(country), 'Region, subregion, country or area *'] = country
+
+        data_pop.to_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
+
+    # Get population for country
+    pop = data_pop[(data_pop['Region, subregion, country or area *'] == country)]
+
+    # Choose population in 2020
+    pop = np.array(pop['2020'])[0]
+
     # Choose country to analyze
     data = data[data['Countries and territories'] == country]
     # For NL at least, the numbers are known 1 day earlier than the ECDC claims
@@ -99,4 +107,5 @@ def load_datasets(country, start_date, target):
 
     # Filter by date
     data = data[data['DateRep'] >= start_date]
+
     return data, pop

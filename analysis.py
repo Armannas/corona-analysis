@@ -30,28 +30,28 @@ norm_pop_str = ""
 params = {
     '1': {
         'country': "Netherlands", # country to analyze
-        'start_date': np.datetime64('2020-03-07'), # start date
-        'nDays': 7, # Number of days to forecast
-        'nDays_off': 0, # offset to allow aligning the data of different countries
-        'target': 'infections', # variable to analyze (infections or mortalities supported)
+        'start_date': np.datetime64('2020-03-16'), # start date
+        'nDays': 5, # Number of days to forecast
+        'nDays_off': -16, # offset to allow aligning the data of different countries
+        'target': 'mortalities', # variable to analyze (infections or mortalities supported)
         'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
         'fit_name': 'exponential', # name of fitting function
-        'norm_pop': False, # Normalize per 1 million inhabitants
-        'plot_off': -5, # offset location of text for each datapoint
+        'norm_pop': True, # Normalize per 1 million inhabitants
+        'plot_off': 5, # offset location of text for each datapoint
         'plot_marker': "D", # Marker for each datapoint
         'plot_color_known': 'tab:blue', # Color of the known datapoints
         'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
     } ,
      '2': {
-         'country': "Italy",
-         'start_date': np.datetime64('2020-03-07'),
-         'nDays': 7,
+         'country': "China",
+         'start_date': np.datetime64('2020-02-29'),
+         'nDays': 1,
          'nDays_off': 0,
-         'target': 'infections',
+         'target': 'mortalities',
          'fit_func': func_exp,
          'fit_name': 'exponential',
-         'norm_pop': False,
-         'plot_off': 8,
+         'norm_pop': True,
+         'plot_off': -5,
          'plot_marker': "o",
          'plot_color_known': 'tab:blue',
          'plot_color_pred': 'darkorange'
