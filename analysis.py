@@ -52,7 +52,7 @@ params = {
          'target': 'mortalities',
          'fit_func': func_exp,
          'fit_name': 'exponential',
-         'norm_pop': True,
+         'norm_pop': False,
          'plot_off': -5,
          'plot_marker': "o",
          'plot_color_known': 'tab:blue',
@@ -70,7 +70,7 @@ for id in params:
     countries.append(country)
 
     # Load COVID-19 and population datasets
-    data, pop = load_datasets(country, p['country_pop_name'], p['start_date'], p['target'])
+    data, pop = load_datasets(country, p['country_pop_name'], p['start_date'], p['target'], p['norm_pop'])
 
     # Update with latest data from RIVM
     # if query_dict['country'] == "Netherlands":

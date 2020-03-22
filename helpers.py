@@ -36,33 +36,45 @@ def get_predictions(func, dates, cases, nDays):
 
     return datespred, ypred, dates_all, y_all
 
-def load_datasets(country, pop_name, start_date, target):
-
-    ## Download COVID-19 data
-    today = str(dt.utcnow().date())
-    file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
-    # Worldwide infections and mortalities from European Center for Disease Control
-    url ="https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
-
-    # If today's data not available, use yesterday's
-    try:
-        urllib.request.urlopen(url)
-    except urllib.error.HTTPError:
-        today = str((dt.utcnow() - timedelta(days=1)).date())
-        file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
-        # Worldwide infections and mortalities from European Center for Disease Control
-        url = "https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
-
-    # Same story as with population data
+def load_covid(file_name, url):
     if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_name):
         data = pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
         print("loaded from disk")
     else:
-        # Otherwise download from URL and save to disk
         data = pd.read_excel(url)
 
         data.to_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
         print("loaded from url")
+    return data
+
+def load_datasets(country, pop_name, start_date, target, norm_pop):
+
+    ## Download COVID-19 data
+
+    # Setup file name and url of today's and yesterday's dataset
+    today = dt.utcnow()
+    yesterday = str((dt.utcnow() - timedelta(days=1)).date())
+
+    # Worldwide infections and mortalities from European Center for Disease Control
+    file_name = "COVID-19-geographic-disbtribution-worldwide-" + str(today.date()) + ".xlsx"
+    url = "https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
+
+    file_name_yesterday = "COVID-19-geographic-disbtribution-worldwide-" + yesterday + ".xlsx"
+    url_yesterday = "https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name_yesterday
+
+    # Dataset for today is usually published at 12 pm UTC.
+    if today.hour < 12:
+        # Load yesterday from disk/url if today's dataset is likely not published yet
+        data = load_covid(file_name_yesterday, url_yesterday)
+
+    # If it's after 12 pm UTC, try grabbing today's dataset
+    else:
+        try:
+            data = load_covid(file_name, url)
+        # If all else fails, revert back to downloading yesterday's dataset
+        except urllib.error.HTTPError:
+            data = load_covid(file_name_yesterday, url_yesterday)
+
 
     data = data.rename(columns={"Cases": "infections", "Deaths": "mortalities"})
 
@@ -86,27 +98,30 @@ def load_datasets(country, pop_name, start_date, target):
 
     ## Same for population data downloaded from UN
     # Load from disk if available
-    if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_pop):
-        data_pop =  pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
+    if norm_pop:
+        if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_pop):
+            data_pop =  pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
+        else:
+            # Otherwise download from URL and save to disk
+            data_pop = pd.read_excel(url_pop, skiprows=16) # Skip first 16 non-data rows
+
+            # Gave up on this, because multiple regions of the same country are included seperately
+            # # UN country names are different. Replace by name convention of ECDC
+            # for country in pd.unique(data['Countries and territories']):
+            #
+            #     # Check which element of UN country name matches that of ECDC
+            #     # Replace that element with ECDC country name
+            #     data_pop.loc[data_pop['Region, subregion, country or area *'].str.contains(country), 'Region, subregion, country or area *'] = country
+
+            data_pop.to_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
+
+        # Get population for country
+        pop = data_pop[(data_pop['Region, subregion, country or area *'] == pop_name)]
+
+        # Choose population in 2020
+        pop = np.array(pop['2020'])[0]
     else:
-        # Otherwise download from URL and save to disk
-        data_pop = pd.read_excel(url_pop, skiprows=16) # Skip first 16 non-data rows
-
-        # Gave up on this, because multiple regions of the same country are included seperately
-        # # UN country names are different. Replace by name convention of ECDC
-        # for country in pd.unique(data['Countries and territories']):
-        #
-        #     # Check which element of UN country name matches that of ECDC
-        #     # Replace that element with ECDC country name
-        #     data_pop.loc[data_pop['Region, subregion, country or area *'].str.contains(country), 'Region, subregion, country or area *'] = country
-
-        data_pop.to_excel(definitions.ROOT_DIR + '/datasets/' + file_pop)
-
-    # Get population for country
-    pop = data_pop[(data_pop['Region, subregion, country or area *'] == pop_name)]
-
-    # Choose population in 2020
-    pop = np.array(pop['2020'])[0]
+        pop = 1
 
 
     return data, pop
