@@ -10,6 +10,8 @@ import pandas as pd
 from datetime import datetime as dt
 from datetime import timedelta
 from functions import func_logit
+import urllib.request
+import urllib.error
 
 def get_predictions(func, dates, cases, nDays):
 
@@ -34,12 +36,7 @@ def get_predictions(func, dates, cases, nDays):
 
     return datespred, ypred, dates_all, y_all
 
-def load_datasets(country, start_date):
-
-    today = str(dt.utcnow().date())
-    file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
-    # Worldwide infections and mortalities from European Center for Disease Control
-    url ="https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
+def load_datasets(country, start_date, target):
 
     url_pop = "https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx"
     file_pop = "population.xls"
@@ -60,6 +57,21 @@ def load_datasets(country, start_date):
     pop = np.array(pop['2020'])[0]
 
     ## Download COVID-19 data
+
+    today = str(dt.utcnow().date())
+    file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
+    # Worldwide infections and mortalities from European Center for Disease Control
+    url ="https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
+
+    # If today's data not available, use yesterday's
+    try:
+        urllib.request.urlopen(url)
+    except urllib.error.HTTPError:
+        today = str((dt.utcnow() - timedelta(days=1)).date())
+        file_name = "COVID-19-geographic-disbtribution-worldwide-" + today + ".xlsx"
+        # Worldwide infections and mortalities from European Center for Disease Control
+        url = "https://www.ecdc.europa.eu/sites/default/files/documents/" + file_name
+
     # Same story as with population data
     if os.path.isfile(definitions.ROOT_DIR + '/datasets/' + file_name):
         data = pd.read_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
@@ -67,6 +79,7 @@ def load_datasets(country, start_date):
     else:
         # Otherwise download from URL and save to disk
         data = pd.read_excel(url)
+
         data.to_excel(definitions.ROOT_DIR + '/datasets/' + file_name)
         print("loaded from url")
 
@@ -75,10 +88,14 @@ def load_datasets(country, start_date):
     # Choose country to analyze
     data = data[data['Countries and territories'] == country]
     # For NL at least, the numbers are known 1 day earlier than the ECDC claims
-    data['DateRep'] = data['DateRep'] - timedelta(days=1)
+    # data['DateRep'] = data['DateRep'] - timedelta(days=1)
 
     # Sort ascending
     data = data.sort_values('DateRep')
+
+    # Compute cumulative cases from cases per day
+    data['infections'] = data['infections'].cumsum()
+    data['mortalities'] = data['mortalities'].cumsum()
 
     # Filter by date
     data = data[data['DateRep'] >= start_date]

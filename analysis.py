@@ -29,51 +29,52 @@ norm_pop_str = ""
 
 params = {
     '1': {
-        'country': "China", # country to analyze
-        'start_date': np.datetime64('2020-01-26'), # start date
-        'nDays': 1, # Number of days to forecast
+        'country': "Netherlands", # country to analyze
+        'start_date': np.datetime64('2020-03-07'), # start date
+        'nDays': 7, # Number of days to forecast
         'nDays_off': 0, # offset to allow aligning the data of different countries
         'target': 'infections', # variable to analyze (infections or mortalities supported)
-        'fit_func': func_logit, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
+        'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
         'fit_name': 'exponential', # name of fitting function
         'norm_pop': False, # Normalize per 1 million inhabitants
-        'plot_off': -100, # offset location of text for each datapoint
+        'plot_off': -5, # offset location of text for each datapoint
         'plot_marker': "D", # Marker for each datapoint
         'plot_color_known': 'tab:blue', # Color of the known datapoints
         'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
-    } #,
-    # '2': {
-    #     'country': "China",
-    #     'start_date': np.datetime64('2020-02-26'),
-    #     'nDays': 7,
-    #     'nDays_off': 0,
-    #     'target': 'mortalities',
-    #     'fit_func': func_exp,
-    #     'fit_name': 'exponential',
-    #     'norm_pop': False,
-    #     'plot_off': 2.5,
-    #     'plot_marker': "o",
-    #     'plot_color_known': 'tab:blue',
-    #     'plot_color_pred': 'darkorange'
-    # }
+    } ,
+     '2': {
+         'country': "Italy",
+         'start_date': np.datetime64('2020-03-07'),
+         'nDays': 7,
+         'nDays_off': 0,
+         'target': 'infections',
+         'fit_func': func_exp,
+         'fit_name': 'exponential',
+         'norm_pop': False,
+         'plot_off': 8,
+         'plot_marker': "o",
+         'plot_color_known': 'tab:blue',
+         'plot_color_pred': 'darkorange'
+     }
 
 }
 # ----------------------
 
+countries = []
 for id in params:
 
     p = params[id]
     country = p['country']
+    countries.append(country)
 
     # Load COVID-19 and population datasets
-    data, pop = load_datasets(country, p['start_date'])
+    data, pop = load_datasets(country, p['start_date'], p['target'])
 
     # Update with latest data from RIVM
     # if query_dict['country'] == "Netherlands":
     #     data = data.append({'DateRep': np.datetime64(today), 'Cases': rivm_cases, 'Deaths':rivm_deaths}, ignore_index=True)
 
-    # Compute cumulative cases from cases per day
-    cases = np.array(data[p['target']].cumsum())
+    cases = np.array(data[p['target']])
 
     # Normalize per 1 mil inhabitants
     if p['norm_pop']:
@@ -123,8 +124,7 @@ for id in params:
     else:
         plt.plot(dates, cases, 'r--', label=f"Trend ({p['fit_name']}, {country})", zorder=1)
 
-    plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(params.keys()) + ", 7 day forecast")
-    plt.ylabel("Number of " + str(p['target']) + norm_pop_str)
+
     plt.xlim(dates_all[0], dates_all[-1])
 
     # Format the date labels on x axis
@@ -137,10 +137,16 @@ for id in params:
         else:
             plt.annotate(str(int(b)), xy=(a, b + p['plot_off']), ha='center')
 
-    # Rotate labels for easier reading
-    plt.setp(plt.gca().xaxis.get_majorticklabels(),'rotation', 45)
-    plt.legend()
-    plt.show()
+
+# Print the same country once
+countries = np.unique(countries)
+plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(countries) + ", 7 day forecast")
+plt.ylabel("Number of " + str(p['target']) + norm_pop_str)
+
+# Rotate labels for easier reading
+plt.setp(plt.gca().xaxis.get_majorticklabels(),'rotation', 45)
+plt.legend()
+plt.show()
 
 # Open specific prediction
 # import pickle
