@@ -76,22 +76,22 @@ def load_datasets(country, pop_name, start_date, target, norm_pop):
             data = load_covid(file_name_yesterday, url_yesterday)
 
 
-    data = data.rename(columns={"Cases": "infections", "Deaths": "mortalities"})
+    data = data.rename(columns={"cases": "infections", "deaths": "mortalities"})
 
     # Choose country to analyze
-    data = data[data['Countries and territories'] == country]
+    data = data[data['countriesAndTerritories'] == country]
     # For NL at least, the numbers are known 1 day earlier than the ECDC claims
     # data['DateRep'] = data['DateRep'] - timedelta(days=1)
 
     # Sort ascending
-    data = data.sort_values('DateRep')
+    data = data.sort_values('dateRep')
 
     # Compute cumulative cases from cases per day
     data['infections'] = data['infections'].cumsum()
     data['mortalities'] = data['mortalities'].cumsum()
 
     # Filter by date
-    data = data[data['DateRep'] >= start_date]
+    data = data[data['dateRep'] >= start_date]
 
     url_pop = "https://population.un.org/wpp/Download/Files/1_Indicators%20(Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx"
     file_pop = "population.xls"
