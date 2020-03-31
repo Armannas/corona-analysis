@@ -32,33 +32,33 @@ params = {
     '1': {
         'country': "Netherlands", # country to analyze
         'country_pop_name': "Netherlands", # Name as denoted by UN dataset (sometimes different than the COVID dataset)
-        'start_date': np.datetime64('2020-03-06'), # start date
-        'nDays': 5, # Number of days to forecast
+        'start_date': np.datetime64('2020-02-29'), # start date
+        'nDays': 30, # Number of days to forecast
         'nDays_off': 0, # offset to allow aligning the data of different countries
-        'target': 'mortalities', # variable to analyze (infections or mortalities supported)
-        'fit_func': func_exp, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
-        'fit_name': 'exponential', # name of fitting function
+        'target': 'iccases', # variable to analyze (infections or mortalities supported)
+        'fit_func': func_logit, # fitting function (func_exp, func_logit and func_lin supported, choose None for no prediction)
+        'fit_name': 'logistic', # name of fitting function
         'norm_pop': False, # Normalize per 1 million inhabitants
         'plot_off': 25, # offset location of text for each datapoint
         'plot_marker': "D", # Marker for each datapoint
         'plot_color_known': 'tab:blue', # Color of the known datapoints
         'plot_color_pred': 'darkorange' # Color of the forecasted datapoints
-    },
-     '2': {
-         'country': "Netherlands",
-         'country_pop_name': "Netherlands",
-         'start_date': np.datetime64('2020-03-06'),
-         'nDays': 7,
-         'nDays_off': 0,
-         'target': 'mortalities',
-         'fit_func': func_logit,
-         'fit_name': 'logistic',
-         'norm_pop': False,
-         'plot_off': -75,
-         'plot_marker': "o",
-         'plot_color_known': 'tab:blue',
-         'plot_color_pred': 'darkorange'
-     }
+    }
+     # '2': {
+     #     'country': "Netherlands",
+     #     'country_pop_name': "Netherlands",
+     #     'start_date': np.datetime64('2020-03-01'),
+     #     'nDays': 7,
+     #     'nDays_off': 0,
+     #     'target': 'iccases',
+     #     'fit_func': func_logit,
+     #     'fit_name': 'logistic',
+     #     'norm_pop': False,
+     #     'plot_off': -75,
+     #     'plot_marker': "o",
+     #     'plot_color_known': 'tab:blue',
+     #     'plot_color_pred': 'darkorange'
+     # }
 
 }
 # ----------------------
@@ -85,7 +85,7 @@ for id in params:
     dates = [d.date() for d in dates_pd]
 
     # Update with latest data from RIVM
-    if country == "Netherlands":
+    if (country == "Netherlands") & (p['target'] != 'iccases'):
         dates = [d - timedelta(days=1) for d in dates]
         today = dt.utcnow().date()
         dates.append(today)
@@ -166,12 +166,12 @@ for id in params:
             plt.annotate(str(int(b)), xy=(a, b + p['plot_off']), ha='center')
     countries.append(country)
 
-plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(countries) + ", 7 day forecast")
+plt.title("Number of known Coronavirus " + str(p['target']) + " in " + " and ".join(countries) + ", " + str(p['nDays']) +  " day forecast")
 plt.ylabel("Number of " + str(p['target']) + norm_pop_str)
 
 # Rotate labels for easier reading
 plt.setp(plt.gca().xaxis.get_majorticklabels(),'rotation', 45)
-plt.legend()
+plt.legend(loc='best')
 plt.show()
 
 # Open specific prediction

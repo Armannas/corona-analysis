@@ -20,8 +20,13 @@ def setup_dirs():
         os.mkdir("datasets")
     if not os.path.exists("predictions"):
         os.mkdir("predictions")
+    if not os.path.exists("predictions/infections"):
         os.mkdir("predictions/infections")
+    if not os.path.exists("predictions/mortalities"):
         os.mkdir("predictions/mortalities")
+    if not os.path.exists("predictions/iccases"):
+        os.mkdir("predictions/iccases")
+
 
 def save_prediction(dates_dt, datespred, d, target, country, fit_name):
 

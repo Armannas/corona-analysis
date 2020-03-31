@@ -50,6 +50,11 @@ def load_covid(file_name, url):
 def load_datasets(country, pop_name, start_date, target, norm_pop):
 
     ## Download COVID-19 data
+    if target == 'iccases':
+        data = pd.read_excel(definitions.ROOT_DIR + '/datasets/' + 'icdata.xls')
+        pop = 1
+        print("TRUE")
+        return data, pop
 
     # Setup file name and url of today's and yesterday's dataset
     today = dt.utcnow()
