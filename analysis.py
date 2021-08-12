@@ -1,5 +1,5 @@
 #
-## Author: Arman Nassiri, arman.a.nassiri@gmail.com
+## Author: Arman Naseri Jahfari, arman.a.nassiri@gmail.com
 #
 
 from datetime import timedelta
